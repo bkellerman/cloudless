@@ -25,27 +25,22 @@
       <input type="hidden" name="image_id" />
       <main>
         <div class="left">
-          <h1>Draw boxes around clouds</h1>
+          <h1>Draw boxes around ships</h1>
           <div class="image-container"></div>
         </div>
 
         <div class="right">
           <p class="progress">Progress: {{ progress }}</p>
 
-          <p class="instructions">Draw bounding boxes around clouds or groups of touching clouds in the image.</p>
+          <p class="instructions">Draw bounding boxes around ships in the image.</p>
 
           <p class="instructions">Instructions:</p>
           <ul>
-            <li><b>Only mark an item as a cloud if you are sure it is a cloud.</b></li>
-            <li>Include all visible parts, including any cloud shadows, and draw as tightly as possible on each cloud. It's okay for bounding boxes to overlap.</li>
-            <li>If there are multiple clouds and they <b>directly</b> touch, draw the box around the group. If the entire image is basically covered in a cloud select the "All Cloud" checkbox below then press "Done".</li>
+            <li><b>Only mark an item as a ship if you are sure it is a ship.</b></li>
+            <li>Include all visible parts, and draw as tightly as possible around the ship each cloud.</li>
             <li>If the image has lens flare or the colors are smeared across RGB, press the "Delete" button.</li>
           </ul>
 
-          <div class="all-cloud-container">
-            <label for="all-cloud">All Cloud</label>
-            <input type="checkbox" class="all-cloud" name="all-cloud" />
-          </div>
 
           <div class="submit-button-container">
             <button class="delete" type="submit">Delete</button>

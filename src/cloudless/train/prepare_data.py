@@ -7,13 +7,15 @@ import time
 import csv
 import json
 import random
-
+import matplotlib
+matplotlib.use("Agg")
 from PIL import (Image, ImageOps)
 import numpy as np
 from sklearn.cross_validation import train_test_split
 from sklearn.utils import shuffle
 import plyvel
-from caffe_pb2 import Datum
+#from caffe_pb2 import Datum
+from caffe.proto import caffe_pb2
 
 import utils
 
@@ -409,7 +411,7 @@ def _generate_leveldb(file_path, image_paths, targets, width, height):
         continue
 
       # Each entry in the leveldb is a Caffe protobuffer "Datum" object containing details.
-      datum = Datum()
+      datum = caffe_pb2.Datum()
       datum.channels = 3 # RGB
       datum.height = height
       datum.width = width

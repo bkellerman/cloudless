@@ -16,3 +16,6 @@ cd .. && rsync -rave "ssh -i $EC2_KEYPAIR" -ar \
     --exclude logs/ \
     --exclude src/caffe_model/bvlc_alexnet/bvlc_alexnet_finetuned.caffemodel \
     cloudless/ ubuntu@$LOCATION:/data/cloudless
+
+[ec2-user@ip-172-31-12-75 planetlab]$ scp -i ~/.ssh/flowscape-research.pem -r /home/ec2-user/cloudless/data/planetlab/metadata/ ubuntu@ec2-52-55-181-225.compute-1.amazonaws.com:/data/cloudless/data/planetlab
+

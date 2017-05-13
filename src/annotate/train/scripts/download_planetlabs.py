@@ -14,7 +14,57 @@ from gdalconst import *
 PLANET_KEY = os.environ.get('PLANET_KEY')
 if not PLANET_KEY:
     raise Exception('PLANET_KEY environment variable not set!')
+def gdal_error_handler(err_class, err_num, err_msg):
+    errtype = {
+            gdal.CE_None:'None',
+            gdal.CE_Debug:'Debug',
+            gdal.CE_Warning:'Warning',
+            gdal.CE_Failure:'Failure',
+            gdal.CE_Fatal:'Fatal'
+    }
+    err_msg = err_msg.replace('\n',' ')
+    err_class = errtype.get(err_class, 'None')
+    print 'Error Number: %s' % (err_num)
+    print 'Error Type: %s' % (err_class)
+    print 'Error Message: %s' % (err_msg)
 
+def download_rect(pts, download_dir='/tmp', image_type='planetlabs'):
+    """
+    Given a latitude, longitude, and a number of meters to buffer by,
+    get all imagery that intersects the bounding box of the buffer and
+    download it to the specified directory.  Return the names of the
+    downloaded files.
+    """
+    lng1, lat1 = pts[0]
+    lng2, lat2 = pts[1]
+    lng3, lat3 = pts[2]
+    lng4, lat4 = pts[3]
+    pt1 = ogr.CreateGeometryFromWkt('POINT(%s %s)' % (lng1, lat1))
+    pt2 = ogr.CreateGeometryFromWkt('POINT(%s %s)' % (lng2, lat2))
+    pt3 = ogr.CreateGeometryFromWkt('POINT(%s %s)' % (lng3, lat3))
+    pt4 = ogr.CreateGeometryFromWkt('POINT(%s %s)' % (lng4, lat4))
+    pt1 = reproject(pt1, 4326, 2163)  # from WGS84 to National Atlas
+    pt2 = reproject(pt2, 4326, 2163)  # from WGS84 to National Atlas
+    pt3 = reproject(pt3, 4326, 2163)  # from WGS84 to National Atlas
+    pt4 = reproject(pt4, 4326, 2163)  # from WGS84 to National Atlas
+
+    quad = quad_box((pt1, pt2, pt3, pt4))
+    quad = reproject(quad, 2163, 4326)
+
+    if image_type == 'planetlabs':
+        scenes_url = "https://api.planet.com/v0/scenes/ortho/"
+    elif image_type == 'rapideye':
+        scenes_url = "https://api.planet.com/v0/scenes/rapideye/"
+
+    # Download the initial scenes URL and also any paged results that come after that.
+    downloaded_scenes = []
+    next_url = scenes_url
+    params = {"intersects": quad.ExportToWkt()}
+    while next_url != None:
+        next_url = download_results(next_url, params, downloaded_scenes, download_dir, image_type)
+        print "\nWorking with next page of results: %s" % next_url
+
+    return downloaded_scenes
 
 def download(lat, lng, buff_meters, download_dir='/tmp', image_type='planetlabs'):
     """
@@ -75,7 +125,7 @@ def download_results(results_url, params, downloaded_scenes, download_dir, image
                 image_filename = download_image(img_url, download_dir)
 
                 if image_type == 'rapideye':
-                    # RapidEye images are 16-bit non-color corrected images by default.
+                     #RapidEye images are 16-bit non-color corrected images by default.
                     image_filename = from_analytic_to_visual(image_filename, download_dir)
 
                 finished = True
@@ -93,6 +143,7 @@ def from_analytic_to_visual(analytic_filename, download_dir='/tmp'):
     Process adapted from: https://www.mapbox.com/blog/processing-rapideye-imagery/
     """
     GDAL_TRANSLATE = 'gdal_translate -b 3 -b 2 -b 1 -b 6 -co ALPHA=YES -co PHOTOMETRIC=RGB %s %s'
+    #GDAL_TRANSLATE = 'gdal_translate -b 3 -b 2 -b 1 -co ALPHA=YES -co PHOTOMETRIC=RGB %s %s'
     # % (input, output)
 
     # Unfortunately gdalwarp looks like it has a bug passing the alpha channel through when a
@@ -134,10 +185,15 @@ def from_analytic_to_visual(analytic_filename, download_dir='/tmp'):
     fix_alpha_channel(bright_filename)
 
     # Cleanup
-    print "Cleaning up..."
+    print "Moving new file to original file"
     shutil.move(bright_filename, analytic_filename)
+    print "Removing translated file" 
     os.remove(translate_filename)
-    os.remove(os.path.join(download_dir, '%s-rgb.tif.aux.xml' % (base)))
+    print "Removing xml file"
+    try:
+        os.remove(os.path.join(download_dir, '%s-rgb.tif.aux.xml' % (base)))
+    except Exception as e:
+        print e
     # No output from gdal_warp for now.
     #os.remove(proj_filename)
     #os.remove(os.path.join(download_dir, '%s-proj.tfw' % (base)))
@@ -176,6 +232,21 @@ def reproject(geom, from_epsg, to_epsg):
     geom.Transform(transform)
 
     return geom
+
+def quad_box(pts):
+    """
+    Buffers the geom by buff and then calculates the bounding box.
+    Returns a Geometry of the bounding box
+    """
+    wkt = """POLYGON((
+        %s %s,
+        %s %s,
+        %s %s,
+        %s %s,
+        %s %s
+    ))""" % (lng1, lat1, lng1, lat2, lng2, lat2, lng2, lat1, lng1, lat1)
+    wkt = wkt.replace('\n', '')
+    return ogr.CreateGeometryFromWkt(wkt)
 
 def buffer_bbox(geom, buff):
     """
@@ -227,6 +298,7 @@ def get_download_filename(url, download_dir='/tmp'):
     return local_filename
 
 if __name__ == '__main__':
+    gdal.PushErrorHandler(gdal_error_handler)
     parser = argparse.ArgumentParser(
         description='Download scenes from Planet'
     )
@@ -254,3 +326,5 @@ if __name__ == '__main__':
     else:
         downloaded_scenes = download(args.lat, args.lng, args.buffer, args.dir, args.image_type)
         print '%s downloaded %s scenes' % (len(downloaded_scenes), args.image_type)
+    #uninstall error handler
+    gdal.PopErrorHandler()
